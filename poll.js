@@ -4,7 +4,9 @@ jQuery(function($) {
   var channel_events = {};
   var get_active = null;
   var get_active_error = null;
+  var get_active_error_count = 0;
   var get_active_success = null;
+  var get_active_success_count = 0;
   var poll_channel = null;
   var poll_error = null;
   var poll_success = null;
@@ -41,7 +43,8 @@ jQuery(function($) {
     });
   };
   get_active_error = function(jqXHR,textStatus,errorThrown) {
-    $('.log').append('<p>get_active_error</p>');
+    get_active_error_count += 1;
+    $('span.active_error_count').text(get_active_error_count.toString());
     setTimeout(get_active,(3*1000));
   };
   get_active_success = function(data,status,jqXHR) {
@@ -49,6 +52,9 @@ jQuery(function($) {
     var channel_count = 0;
     var channel_list = null;
     var ii = 0;
+
+    get_active_success_count += 1;
+    $('span.active_success_count').text(get_active_success_count.toString());
 
     if (!channel_events.hasOwnProperty('started')) {
       try {
