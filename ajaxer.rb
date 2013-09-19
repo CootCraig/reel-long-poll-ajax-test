@@ -27,11 +27,13 @@ module ReelLongPollAjaxTest
     end
 
     def on_connection(connection)
-      request = connection.request
-      if request
+      while request = connection.request
         if !request.websocket?
           APP_LOGGER.debug "WebServer.on_connection #{request.url}"
           route(connection,request)
+          if !connection.attached?
+            break
+          end
         end
       end
     rescue => ex
