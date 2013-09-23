@@ -1,0 +1,168 @@
+=============
+
+Reel::Server creates a Celluloid::IO::TCPServer
+Celluloid::IO::TCPServer creates a Ruby ::TCPServer
+
+Reel::Server run loop
+loop { async.handle_connection @server.accept }
+
+def handle_connection(socket)
+  connection = Connection.new(socket)
+    @callback.call(connection)
+
+# @server.accept
+class Celluloid::IO::TCPServer
+  def_delegators :@server, :listen, :sysaccept, :close, :closed?, :addr, :setsockopt
+  def accept
+    Celluloid::IO.wait_readable(@server)
+    accept_nonblock
+  def accept_nonblock
+    Celluloid::IO::TCPSocket.new(@server.accept_nonblock)
+
+Ruby ::TCPServer - accept_nonblock => tcpsocket
+Accepts an incoming connection using accept(2) after O_NONBLOCK is set
+for the underlying file descriptor. It returns an accepted TCPSocket
+for the incoming connection.
+
+# example 
+require 'socket'
+tcps = ::TCPServer.new 8100
+begin
+  tcpsock = tcps.accept_nonblock
+rescue Errno::EAGAIN => ex
+  puts "accept_nonblock would block"
+rescue => ex
+  puts "exception other than Errno::EAGAIN #{ex.class} #{ex.message}"
+end
+
+module Celluloid
+  module IO
+    def wait_readable(io)
+      mailbox = Thread.current[:celluloid_mailbox]
+      mailbox.reactor.wait_readable(io)
+    end
+
+=============
+thread #[], #[]= access thread local variables
+thr[sym] → obj or nil
+Attribute Reference—Returns the value of a thread-local variable, using either a symbol or a string name. If the specified variable does not exist, returns nil.
+
+=============
+/opt/rubies/ruby-2.0.0-p247/lib/ruby/gems/2.0.0/gems/reel-0.4.0/lib/reel/server.rb 
+
+module Reel
+  class Server
+    include Celluloid::IO
+    def initialize(host, port, backlog = DEFAULT_BACKLOG, &callback)
+      # This is actually an evented Celluloid::IO::TCPServer
+      @server = TCPServer.new(host, port)
+
+    def run
+      loop { async.handle_connection @server.accept }
+    end
+    def handle_connection(socket)
+      connection = Connection.new(socket)
+      begin
+        @callback.call(connection)
+------------
+module Celluloid
+  module IO
+    # TCPServer with combined blocking and evented support
+    class TCPServer
+      extend Forwardable
+      def_delegators :@server, :listen, :sysaccept, :close, :closed?, :addr, :setsockopt
+
+      def initialize(hostname_or_port, port = nil)
+        @server = ::TCPServer.new(hostname_or_port, port)
+      end
+
+      def accept
+        Celluloid::IO.wait_readable(@server)
+        accept_nonblock
+      end
+
+      def accept_nonblock
+        Celluloid::IO::TCPSocket.new(@server.accept_nonblock)
+      end
+
+------------
+
+module Celluloid
+  # Actors with evented IO support
+  module IO
+    def self.evented?
+      actor = Thread.current[:celluloid_actor]
+      actor && actor.mailbox.is_a?(Celluloid::IO::Mailbox)
+    end
+
+    def wait_readable(io)
+      io = io.to_io
+      if IO.evented?
+        mailbox = Thread.current[:celluloid_mailbox]
+        mailbox.reactor.wait_readable(io)
+      else
+        Kernel.select([io])
+      end
+      nil
+    end
+    module_function :wait_readable
+
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============
+=============

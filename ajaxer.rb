@@ -6,6 +6,7 @@ require 'celluloid/autostart'
 require 'reel'
 require 'trollop'
 require 'cgi'
+require 'uri'
 require 'date'
 require 'json'
 require 'pathname'
@@ -21,7 +22,7 @@ module ReelLongPollAjaxTest
   Celluloid.logger = @@app_logger
 
   EVENT_TOPIC = 'events'
-  CHANNELS = (101..102).collect{|n| n.to_s}
+  CHANNELS = (101..116).collect{|n| n.to_s}
 
   class WebServer < Reel::Server
     def initialize(the_opts)
@@ -34,7 +35,7 @@ module ReelLongPollAjaxTest
     def on_connection(connection)
       while request = connection.request
         if !request.websocket?
-          ReelLongPollAjaxTest.logger.debug "WebServer.on_connection #{request.url}"
+          ReelLongPollAjaxTest.logger.debug "WebServer.on_connection #{request.path}"
           route(connection,request)
           if !connection.attached?
             break
@@ -63,6 +64,11 @@ module ReelLongPollAjaxTest
       query_string = request.query_string || ''
       params = CGI::parse(query_string)
       if params['channel'] && (params['channel'].length == 1) && (params['channel'][0].length > 0)
+        start_time = 'none'
+        if params['start_time'] && (params['start_time'].length == 1)
+          start_time = URI.unescape(params['start_time'][0])
+        end
+        ReelLongPollAjaxTest.logger.info "WebServer.event_request port #{connection.socket.peeraddr[1]} browser start_tme #{start_time}"
         channel_name = params['channel'][0] 
         request.body.to_s
         connection.detach
@@ -81,10 +87,10 @@ module ReelLongPollAjaxTest
       @channel = channel
       @random = Random.new
       ReelLongPollAjaxTest.logger.info "ChannelEventSource starting channel #{@channel}"
-      after(2) {async.event}
+      after(1) {async.event}
     end
     def random_delay
-      @random.rand 8..15
+      @random.rand 4..20
     end
     def event
       publish EVENT_TOPIC, {channel: @channel, counter: ChannelEventSource.next_event_count.to_s, at: DateTime.now.to_s}
@@ -129,7 +135,7 @@ module ReelLongPollAjaxTest
     end
     def event_respond(connection,payload)
       begin
-        ReelLongPollAjaxTest.logger.debug "AjaxNotifier.event_respond: respond #{payload}"
+        ReelLongPollAjaxTest.logger.debug "AjaxNotifier.event_respond: respond port #{connection.socket.peeraddr[1]} #{payload}"
         connection.respond :ok, payload
         connection.close
       rescue Reel::SocketError
@@ -146,7 +152,7 @@ module ReelLongPollAjaxTest
         @subscribers[channel_sym] << connection
       end
       connection_count = @subscribers[channel_sym].length
-      ReelLongPollAjaxTest.logger.debug "register_connection: channel #{channel} connection count #{connection_count}"
+      ReelLongPollAjaxTest.logger.debug "register_connection: port #{connection.socket.peeraddr[1]} channel #{channel} connection count #{connection_count}"
     end
   end
 
