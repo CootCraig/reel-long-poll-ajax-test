@@ -16,12 +16,15 @@ module ReelLongPollAjaxTest
   VERSION = '0.0.1'
 
   @@app_logger = Logger.new('server_log.txt')
+  @@app_logger.level = Logger::INFO
   def self.logger
     @@app_logger
   end
   Celluloid.logger = @@app_logger
 
-  DB = Sequel.connect('jdbc:sqlite:data/testlog.db')
+  CONNECTION = 'jdbc:sqlite:data/testlog.db' if false
+  CONNECTION = 'jdbc:sqlserver://localhost;database=reeltest;user=sa;password=banana;' if true
+  DB = Sequel.connect(CONNECTION)
   TESTLOG = DB[:testlog]
 
   EVENT_TOPIC = 'events'
@@ -71,8 +74,8 @@ module ReelLongPollAjaxTest
         if params['start_time'] && (params['start_time'].length == 1)
           start_time = URI.unescape(params['start_time'][0])
         end
-        ReelLongPollAjaxTest.logger.info "WebServer.event_request port #{connection.socket.peeraddr[1]} browser start_tme #{start_time}"
-        channel_name = params['channel'][0] 
+        ReelLongPollAjaxTest.logger.debug "WebServer.event_request port #{connection.socket.peeraddr[1]} browser start_tme #{start_time}"
+        channel_name = params['channel'][0]
         request.body.to_s
         connection.detach
         Celluloid::Actor[:ajax_notifier].async.register_connection(connection,channel_name)
@@ -84,7 +87,7 @@ module ReelLongPollAjaxTest
   end
   class DbLog
     include Celluloid
-    def log(evt)
+    def db_log(evt)
       TESTLOG.insert(:source => 'server', :channel => evt[:channel].to_i, :counter => evt[:counter].to_i)
     end
   end
@@ -103,7 +106,7 @@ module ReelLongPollAjaxTest
     end
     def event
       evt_obj = {channel: @channel, counter: ChannelEventSource.next_event_count.to_s, at: DateTime.now.to_s}
-      Celluloid::Actor[:db_log].async.log(evt_obj)
+      Celluloid::Actor[:db_log].async.db_log(evt_obj)
       publish EVENT_TOPIC, evt_obj
       after(random_delay) {async.event}
     end
