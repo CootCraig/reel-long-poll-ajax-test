@@ -108,8 +108,50 @@ module Celluloid
     module_function :wait_readable
 
 =============
+Wed Oct 23 11:39:29 MDT 2013
+
+Ty suggested the problems may be caused by browser limitations.  So redo
+the test with a ruby client.
+
 =============
+Wed Oct 23 11:41:40 MDT 2013
+
+Resolve github version.
+
 =============
+$ git branch
+* 001_ruby_client_test
+  master
+
+============= currently
+CHANNELS = (101..116).collect{|n| n.to_s}
+
+class WebServer < Reel::Server
+class ChannelEventSource
+class AjaxNotifier
+
+opts = Trollop::options do
+  version "reel-long-poll-ajax-test #{ReelLongPollAjaxTest::VERSION} (c) 2013 Craig Anderson"
+  opt :host, "Host for Reel HTTP", :default => '0.0.0.0'
+  opt :port, "Port for Reel HTTP", :default => 8091
+end
+
+test_opts = {host: opts[:host], port: opts[:port]}
+
+AjaxNotifier.supervise_as :ajax_notifier
+ChannelEventSource.start_channels CHANNELS
+WebServer.supervise_as :web_server, test_opts
+sleep
+
+=============
+Don't need to change anything,
+just write a ruby client script.
+
+http://localhost:8091/active
+- returns json array of event channel names.
+http://localhost:8091/event?channel=123
+- register this request to get the next event on the channel
+
 =============
 =============
 =============

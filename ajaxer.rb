@@ -14,7 +14,7 @@ require 'pathname'
 module ReelLongPollAjaxTest
   VERSION = '0.0.1'
 
-  @@app_logger = Logger.new('log.txt')
+  @@app_logger = Logger.new('server_log.txt')
   def self.logger
     @@app_logger
   end
@@ -22,7 +22,7 @@ module ReelLongPollAjaxTest
   Celluloid.logger = @@app_logger
 
   EVENT_TOPIC = 'events'
-  CHANNELS = (101..116).collect{|n| n.to_s}
+  CHANNELS = (101..121).collect{|n| n.to_s}
 
   class WebServer < Reel::Server
     def initialize(the_opts)
