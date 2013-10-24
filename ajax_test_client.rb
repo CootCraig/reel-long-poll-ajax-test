@@ -3,13 +3,19 @@ require 'bundler/setup'
 require 'celluloid/autostart'
 require 'httparty'
 require 'json'
+require 'sequel'
 
 module ReelLongPollAjaxTestClient
   SERVER_URL = "http://localhost:8091/"
   CHANNEL_LIST_URL = "#{SERVER_URL}active"
   EVENT_URL = "#{SERVER_URL}event?channel="
 
+  DB = Sequel.connect('jdbc:sqlite:data/testlog.db')
+  TESTLOG = DB[:testlog]
+
   @@app_logger = Logger.new('client_log.txt')
+  Celluloid.logger = @@app_logger
+
   def self.logger
     @@app_logger
   end
@@ -30,6 +36,7 @@ module ReelLongPollAjaxTestClient
   end
   def self.run
     ReelLongPollAjaxTestClient.logger.info "\n====\nStarting\n===="
+    DbLog.supervise_as :db_log
     LogActor.supervise_as :log_actor
     channel_list = ReelLongPollAjaxTestClient.get_channel_list
     channel_list.each do |channel|
@@ -55,16 +62,24 @@ module ReelLongPollAjaxTestClient
       loop do
         response = HTTParty.get(@channel_ajax_url)
         json_object = JSON.parse(response.body)
+        Celluloid::Actor[:db_log].async.log(@id.to_s,json_object)
         Celluloid::Actor[:log_actor].async.log "ChannelClient: id #{@id} [#{json_object}]"
       end
     end
 
   end
+  class DbLog
+    include Celluloid
+
+    def log(id,evt)
+      TESTLOG.insert(:source => "client_#{id}", :channel => evt['channel'].to_i, :counter => evt['counter'].to_i)
+    end
+  end
   class LogActor
     include Celluloid
 
     def log(msg)
-      ReelLongPollAjaxTestClient.logger.info msg
+      ReelLongPollAjaxTestClient.logger.info msg if false
     end
   end
 end

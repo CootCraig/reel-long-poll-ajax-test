@@ -10,6 +10,7 @@ require 'uri'
 require 'date'
 require 'json'
 require 'pathname'
+require 'sequel'
 
 module ReelLongPollAjaxTest
   VERSION = '0.0.1'
@@ -18,8 +19,10 @@ module ReelLongPollAjaxTest
   def self.logger
     @@app_logger
   end
-
   Celluloid.logger = @@app_logger
+
+  DB = Sequel.connect('jdbc:sqlite:data/testlog.db')
+  TESTLOG = DB[:testlog]
 
   EVENT_TOPIC = 'events'
   CHANNELS = (101..121).collect{|n| n.to_s}
@@ -79,6 +82,12 @@ module ReelLongPollAjaxTest
       end
     end
   end
+  class DbLog
+    include Celluloid
+    def log(evt)
+      TESTLOG.insert(:source => 'server', :channel => evt[:channel].to_i, :counter => evt[:counter].to_i)
+    end
+  end
   class ChannelEventSource
     include Celluloid
     include Celluloid::Notifications
@@ -93,7 +102,9 @@ module ReelLongPollAjaxTest
       @random.rand 4..20
     end
     def event
-      publish EVENT_TOPIC, {channel: @channel, counter: ChannelEventSource.next_event_count.to_s, at: DateTime.now.to_s}
+      evt_obj = {channel: @channel, counter: ChannelEventSource.next_event_count.to_s, at: DateTime.now.to_s}
+      Celluloid::Actor[:db_log].async.log(evt_obj)
+      publish EVENT_TOPIC, evt_obj
       after(random_delay) {async.event}
     end
     def self.start_channels channels
@@ -166,6 +177,7 @@ module ReelLongPollAjaxTest
 
   ReelLongPollAjaxTest.logger.info "\n===\n=== reel-long-poll-ajax-test run at #{test_opts[:host]}:#{test_opts[:port]}\n==="
 
+  DbLog.supervise_as :db_log
   AjaxNotifier.supervise_as :ajax_notifier
   ChannelEventSource.start_channels CHANNELS
   WebServer.supervise_as :web_server, test_opts
