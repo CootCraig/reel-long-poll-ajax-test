@@ -23,12 +23,14 @@ module ReelLongPollAjaxTest
   Celluloid.logger = @@app_logger
 
   CONNECTION = 'jdbc:sqlite:data/testlog.db' if false
-  CONNECTION = 'jdbc:sqlserver://localhost;database=reeltest;user=sa;password=banana;' if true
+  CONNECTION = 'jdbc:sqlserver://localhost;database=reeltest;user=sa;password=banana;' if false
+  CONNECTION = 'jdbc:sqlserver://gcs2;database=craig;user=sa;password=mushroom;' if true
   DB = Sequel.connect(CONNECTION)
-  TESTLOG = DB[:testlog]
+  Sequel::Model.db = DB
+  require './longpolltestlog'
 
   EVENT_TOPIC = 'events'
-  CHANNELS = (101..121).collect{|n| n.to_s}
+  CHANNELS = (101..151).collect{|n| n.to_s}
 
   class WebServer < Reel::Server
     def initialize(the_opts)
@@ -88,7 +90,7 @@ module ReelLongPollAjaxTest
   class DbLog
     include Celluloid
     def db_log(evt)
-      TESTLOG.insert(:source => 'server', :channel => evt[:channel].to_i, :counter => evt[:counter].to_i)
+      Longpolltestlog.create(:source => 'server', :channel => evt[:channel].to_i, :counter => evt[:counter].to_i)
     end
   end
   class ChannelEventSource

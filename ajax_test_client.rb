@@ -11,9 +11,11 @@ module ReelLongPollAjaxTestClient
   EVENT_URL = "#{SERVER_URL}event?channel="
 
   CONNECTION = 'jdbc:sqlite:data/testlog.db' if false
-  CONNECTION = 'jdbc:sqlserver://localhost;database=reeltest;user=sa;password=banana;' if true
+  CONNECTION = 'jdbc:sqlserver://localhost;database=reeltest;user=sa;password=banana;' if false
+  CONNECTION = 'jdbc:sqlserver://gcs2;database=craig;user=sa;password=mushroom;' if true
   DB = Sequel.connect(CONNECTION)
-  TESTLOG = DB[:testlog]
+  Sequel::Model.db = DB
+  require './longpolltestlog'
 
   @@app_logger = Logger.new('client_log.txt')
   @@app_logger.level = Logger::INFO
@@ -44,7 +46,7 @@ module ReelLongPollAjaxTestClient
     LogActor.supervise_as :log_actor
     channel_list = ReelLongPollAjaxTestClient.get_channel_list
     channel_list.each do |channel|
-      3.times do |counter|
+      2.times do |counter|
         sym = "chan_#{channel}_copy_#{counter}".to_sym
         ChannelClient.supervise_as sym,channel,sym
       end
@@ -76,7 +78,7 @@ module ReelLongPollAjaxTestClient
     include Celluloid
 
     def db_log(id,evt)
-      TESTLOG.insert(:source => "client_#{id}", :channel => evt['channel'].to_i, :counter => evt['counter'].to_i)
+      Longpolltestlog.create(:source => "client_#{id}", :channel => evt['channel'].to_i, :counter => evt['counter'].to_i)
     end
   end
   class LogActor
